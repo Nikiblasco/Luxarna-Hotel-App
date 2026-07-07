@@ -23,20 +23,20 @@ function TaskList({ type, currentStaff, canHandle, onClose }) {
   }, [])
 
   async function fetchTasks() {
-  const { data, error } = await supabase
-    .from('tasks')
-    .select('*, rooms(room_number), staff(name)')
-    .eq('type', type)
-    .neq('status', 'done')
-    .order('created_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*, rooms(room_number), staff(name)')
+      .eq('type', type)
+      .neq('status', 'done')
+      .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error('Error fetching tasks:', error)
-  } else {
-    setTasks(data)
+    if (error) {
+      console.error('Error fetching tasks:', error)
+    } else {
+      setTasks(data)
+    }
+    setLoading(false)
   }
-  setLoading(false)
-}
 
   async function fetchRooms() {
     const { data, error } = await supabase.from('rooms').select('id, room_number').order('room_number')
@@ -66,41 +66,52 @@ function TaskList({ type, currentStaff, canHandle, onClose }) {
     setSaving(false)
   }
 
- async function handleTaskClick(task) {
-  if (task.status === 'done') return // nothing to do, already complete
+  async function handleTaskClick(task) {
+    if (task.status === 'done') return
 
-if (!currentStaff) {
-  alert('You must be logged in to update this task.')
-  return
-}
+    const role = currentStaff?.role?.toLowerCase()
+    const isReceptionistOrManager = role === 'manager' || role === 'receptionist'
 
-  let nextStatus
-  let updates = {}
+    let nextStatus
+    let updates = {}
 
-  if (task.status === 'pending') {
-    nextStatus = 'in_progress'
-    updates = { status: nextStatus, assigned_to: currentStaff.id }
-  } else if (task.status === 'in_progress') {
-    nextStatus = 'done'
-    updates = { status: nextStatus, completed_at: new Date().toISOString() }
-  } else {
-    return
+    // STEP 1: Staff looks at/claims the task
+    if (task.status === 'pending') {
+      if (!canHandle(currentStaff)) {
+        alert(`You do not have the correct staff role to view/accept ${TYPE_LABELS[type]} tasks.`)
+        return
+      }
+      nextStatus = 'seen'
+      updates = { status: nextStatus, assigned_to: currentStaff.id }
+    } 
+    
+    // STEP 2: Only Receptionist or Manager can mark it as 'done'
+    else if (task.status === 'seen') {
+      if (!isReceptionistOrManager) {
+        alert(`Only the Receptionist or Manager can mark this ${TYPE_LABELS[type]} task as completed.`)
+        return
+      }
+      nextStatus = 'done'
+      updates = { status: nextStatus, completed_at: new Date().toISOString() }
+    } else {
+      return
+    }
+
+    const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
+
+    if (error) {
+      console.error('Error updating task:', error)
+      return
+    }
+
+    const actionWord = nextStatus === 'seen' ? 'Opened & Seen' : 'Cleared/Completed'
+    await supabase.from('activity_log').insert({
+      staff_id: currentStaff.id,
+      action: `${actionWord} ${TYPE_LABELS[type].toLowerCase()} task: ${task.description}`,
+    })
+
+    fetchTasks()
   }
-
-  const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
-
-  if (error) {
-    console.error('Error updating task:', error)
-    return
-  }
-
-  await supabase.from('activity_log').insert({
-    staff_id: currentStaff.id,
-    action: `${nextStatus === 'in_progress' ? 'Claimed' : 'Completed'} ${TYPE_LABELS[type].toLowerCase()} task: ${task.description}`,
-  })
-
-  fetchTasks()
-}
 
   return (
     <div className="activity-log-screen">
