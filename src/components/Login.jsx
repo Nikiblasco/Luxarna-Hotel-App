@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 
 function Login({ onLogin }) {
@@ -7,9 +7,21 @@ function Login({ onLogin }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const pickerRef = useRef(null)
 
-  useState(() => {
+  useEffect(() => {
     fetchStaff()
+  }, [])
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   async function fetchStaff() {
@@ -46,6 +58,8 @@ function Login({ onLogin }) {
     onLogin(data)
   }
 
+  const selectedStaff = staffList.find((s) => s.id === selectedStaffId)
+
   return (
     <div className="in-shell">
       <div className="login-card">
@@ -56,17 +70,47 @@ function Login({ onLogin }) {
         ) : (
           <form onSubmit={handleLogin}>
             <label>Who are you?</label>
-            <select
-              value={selectedStaffId}
-              onChange={(e) => setSelectedStaffId(e.target.value)}
-            >
-              <option value="">Select your name</option>
-              {staffList.map((staff) => (
-                <option key={staff.id} value={staff.id}>
-                  {staff.name} ({staff.role})
-                </option>
-              ))}
-            </select>
+
+            <div className="staff-picker" ref={pickerRef}>
+              <button
+                type="button"
+                className={`staff-picker-trigger ${pickerOpen ? 'open' : ''}`}
+                onClick={() => setPickerOpen(!pickerOpen)}
+              >
+                {selectedStaff ? (
+                  <span>{selectedStaff.name} ({selectedStaff.role})</span>
+                ) : (
+                  <span className="staff-picker-placeholder">Select your name</span>
+                )}
+                <span className={`staff-picker-arrow ${pickerOpen ? 'open' : ''}`}>▾</span>
+              </button>
+
+              {pickerOpen && (
+                <ul className="staff-picker-list">
+                  {staffList.map((staff) => (
+                    <li
+                      key={staff.id}
+                      className={`staff-picker-option ${
+                        staff.id === selectedStaffId ? 'selected' : ''
+                      }`}
+                      onClick={() => {
+                        setSelectedStaffId(staff.id)
+                        setPickerOpen(false)
+                      }}
+                    >
+                      <span className="staff-picker-initial">
+                        {staff.name.charAt(0)}
+                      </span>
+                      <span className="staff-picker-text">
+                        <span className="staff-picker-name">{staff.name}</span>
+                        <span className="staff-picker-role">{staff.role}</span>
+                      </span>
+                      <span className="staff-picker-check">✓</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             <label>PIN</label>
             <input
