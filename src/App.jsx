@@ -20,6 +20,7 @@ import {
   canHandleBarRestaurant,
   canHandleLaundry,
 } from './permissions'
+import { Toaster, toast } from 'react-hot-toast' // Imported toast alongside Toaster
 import './App.css'
 
 function App() {
@@ -62,7 +63,7 @@ function App() {
       .order('room_number')
     if (error) console.error('Error fetching rooms:', error)
     else setRooms(data)
-    setLoading(false)
+    loading && setLoading(false)
   }
 
   async function fetchTaskCounts() {
@@ -73,7 +74,9 @@ function App() {
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('type', type)
-        .in('status', ['pending', 'in_progress'])
+        // Include 'seen' here so active department tasks don't vanish from the home badges
+        .in('status', ['pending', 'seen', 'in_progress'])
+
       counts[type] = error ? 0 : count
     }
     setTaskCounts(counts)
@@ -95,13 +98,13 @@ function App() {
       setShowChecklist(true)
     } else if (room.status === 'clean') {
       if (canBookRoom(currentStaff)) setShowBooking(true)
-      else alert('Only receptionists or the manager can book a room.')
+      else toast.error('Only receptionists or the manager can book a room.')
     } else if (room.status === 'occupied') {
       if (canBookRoom(currentStaff)) setShowCheckout(true)
-      else alert('Only receptionists or the manager can check out a room.')
+      else toast.error('Only receptionists or the manager can check out a room.')
     } else if (room.status === 'out_of_service') {
       if (canResolveIssue(currentStaff)) setShowResolveIssue(true)
-      else alert('Only the manager can resolve this issue.')
+      else toast.error('Only the manager can resolve this issue.')
     }
   }
 
@@ -136,17 +139,48 @@ function App() {
   if (activeTaskType) {
     const canHandle = activeTaskType === 'laundry' ? canHandleLaundry : canHandleBarRestaurant
     return (
-      <TaskList
-        type={activeTaskType}
-        currentStaff={currentStaff}
-        canHandle={canHandle}
-        onClose={() => { setActiveTaskType(null); fetchTaskCounts() }}
-      />
+      <>
+        <TaskList
+          type={activeTaskType}
+          currentStaff={currentStaff}
+          canHandle={canHandle}
+          onClose={() => { setActiveTaskType(null); fetchTaskCounts() }}
+        />
+        {/* Render toaster here as well to cover the inner views natively */}
+        <Toaster 
+          position="top-center" 
+          toastOptions={{
+            style: {
+              background: '#141414',
+              color: '#fff',
+              border: '1px solid #262626',
+              borderRadius: '8px',
+              fontFamily: 'sans-serif',
+              fontSize: '14px'
+            },
+          }} 
+        />
+      </>
     )
   }
 
   return (
     <div className="app-shell">
+      {/* Global Toast Component Configured for dark mode theme matching */}
+      <Toaster 
+        position="top-center" 
+        toastOptions={{
+          style: {
+            background: '#141414',
+            color: '#fff',
+            border: '1px solid #262626',
+            borderRadius: '8px',
+            fontFamily: 'sans-serif',
+            fontSize: '14px'
+          },
+        }} 
+      />
+
       <div className="app-header">
         <h1>Rooms</h1>
         <div className="staff-badge">
@@ -198,7 +232,7 @@ function App() {
           <span className="dept-info">
             <span className="dept-name">Restaurant</span>
             <span className="dept-count">
-              {taskCounts.restaurant === 0 ? 'No pending orders' : `${taskCounts.restaurant} pending`}
+              {taskCounts.restaurant === 0 ? 'No pending orders' : `${taskCounts.restaurant} active`}
             </span>
           </span>
         </button>
@@ -208,7 +242,7 @@ function App() {
           <span className="dept-info">
             <span className="dept-name">Bar</span>
             <span className="dept-count">
-              {taskCounts.bar === 0 ? 'No pending orders' : `${taskCounts.bar} pending`}
+              {taskCounts.bar === 0 ? 'No pending orders' : `${taskCounts.bar} active`}
             </span>
           </span>
         </button>
@@ -218,7 +252,7 @@ function App() {
           <span className="dept-info">
             <span className="dept-name">Laundry</span>
             <span className="dept-count">
-              {taskCounts.laundry === 0 ? 'No pending orders' : `${taskCounts.laundry} pending`}
+              {taskCounts.laundry === 0 ? 'No pending orders' : `${taskCounts.laundry} active`}
             </span>
           </span>
         </button>
