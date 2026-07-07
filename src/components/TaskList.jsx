@@ -69,10 +69,10 @@ function TaskList({ type, currentStaff, canHandle, onClose }) {
  async function handleTaskClick(task) {
   if (task.status === 'done') return // nothing to do, already complete
 
-  if (!canHandle(currentStaff)) {
-    alert('You are not permitted to update this task.')
-    return
-  }
+if (!currentStaff) {
+  alert('You must be logged in to update this task.')
+  return
+}
 
   let nextStatus
   let updates = {}
