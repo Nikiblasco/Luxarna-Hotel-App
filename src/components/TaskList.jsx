@@ -23,19 +23,20 @@ function TaskList({ type, currentStaff, canHandle, onClose }) {
   }, [])
 
   async function fetchTasks() {
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*, rooms(room_number), staff(name)')
-      .eq('type', type)
-      .order('created_at', { ascending: false })
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*, rooms(room_number), staff(name)')
+    .eq('type', type)
+    .neq('status', 'done')
+    .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Error fetching tasks:', error)
-    } else {
-      setTasks(data)
-    }
-    setLoading(false)
+  if (error) {
+    console.error('Error fetching tasks:', error)
+  } else {
+    setTasks(data)
   }
+  setLoading(false)
+}
 
   async function fetchRooms() {
     const { data, error } = await supabase.from('rooms').select('id, room_number').order('room_number')
