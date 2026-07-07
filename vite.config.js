@@ -7,6 +7,17 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+    cleanupOutdatedCaches: true,
+    // CRITICAL: Tells the installed PWA never to freeze your HTML or main scripts
+    navigateFallbackDenylist: [/^\/[a-zA-Z0-9_-]+$/], 
+    runtimeCaching: [
+      {
+        urlPattern: ({ request }) => request.mode === 'navigate',
+        handler: 'NetworkFirst',
+          },
+        ],
+      },
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Luxarna Hotel & Spa',
