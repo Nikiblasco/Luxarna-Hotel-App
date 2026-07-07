@@ -66,39 +66,41 @@ function TaskList({ type, currentStaff, canHandle, onClose }) {
     setSaving(false)
   }
 
-  async function handleTaskClick(task) {
-    if (!canHandle(currentStaff)) {
-      alert('You are not permitted to update this task.')
-      return
-    }
+ async function handleTaskClick(task) {
+  if (task.status === 'done') return // nothing to do, already complete
 
-    let nextStatus
-    let updates = {}
-
-    if (task.status === 'pending') {
-      nextStatus = 'in_progress'
-      updates = { status: nextStatus, assigned_to: currentStaff.id }
-    } else if (task.status === 'in_progress') {
-      nextStatus = 'done'
-      updates = { status: nextStatus, completed_at: new Date().toISOString() }
-    } else {
-      return // already done, nothing to do
-    }
-
-    const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
-
-    if (error) {
-      console.error('Error updating task:', error)
-      return
-    }
-
-    await supabase.from('activity_log').insert({
-      staff_id: currentStaff.id,
-      action: `${nextStatus === 'in_progress' ? 'Claimed' : 'Completed'} ${TYPE_LABELS[type].toLowerCase()} task: ${task.description}`,
-    })
-
-    fetchTasks()
+  if (!canHandle(currentStaff)) {
+    alert('You are not permitted to update this task.')
+    return
   }
+
+  let nextStatus
+  let updates = {}
+
+  if (task.status === 'pending') {
+    nextStatus = 'in_progress'
+    updates = { status: nextStatus, assigned_to: currentStaff.id }
+  } else if (task.status === 'in_progress') {
+    nextStatus = 'done'
+    updates = { status: nextStatus, completed_at: new Date().toISOString() }
+  } else {
+    return
+  }
+
+  const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
+
+  if (error) {
+    console.error('Error updating task:', error)
+    return
+  }
+
+  await supabase.from('activity_log').insert({
+    staff_id: currentStaff.id,
+    action: `${nextStatus === 'in_progress' ? 'Claimed' : 'Completed'} ${TYPE_LABELS[type].toLowerCase()} task: ${task.description}`,
+  })
+
+  fetchTasks()
+}
 
   return (
     <div className="activity-log-screen">
